@@ -1,10 +1,15 @@
 import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
 
-export const registerUser = async (req: Request, res: Response) => {
-  
-};
+const Signup =  async (req: Request, res: Response) => {
+    return res.status(201).json({ message: 'User registered' });
+  }
 
-export const loginUser = async (req: Request, res: Response) => {
- 
+ const Signin =async (req: Request, res: Response) => {
+    return res.status(200).json({ message: 'User signed in' });
+  }
+
+
+export const authController = {
+    Signin,
+    Signup
 };

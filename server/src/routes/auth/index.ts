@@ -1,10 +1,14 @@
-import { Router } from "express";
-import { loginUser, registerUser } from "../../controller/auth";
+import express from 'express';
+import { AsyncHandler } from '../../utils/asyncHandler';
+import { authController } from '../../controller/auth';
 
 
-const router = Router();
+const router = express.Router();
 
-router.post('/register', registerUser);
-router.post('/login', loginUser);
+router.post(
+    '/signup',
+     AsyncHandler(authController.Signup)
+    );
 
-export const AuthRoute = router;
+
+export const AuthRoutes = router;

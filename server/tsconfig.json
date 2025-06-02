@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    "moduleResolution": "node",
+    "lib": ["es6", "dom"],
     /* Visit https://aka.ms/tsconfig to read more about this file */
 
     /* Projects */
