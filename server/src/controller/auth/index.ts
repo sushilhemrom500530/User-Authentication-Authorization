@@ -2,42 +2,52 @@ import bcrypt from 'bcryptjs';
 import { Request, Response } from "express";
 import User from "../../models/User";
 
-const Signup = async (req: Request, res: Response) => {
+export const Signup = async (req: Request, res: Response) => {
   try {
     const { username, password, shops } = req.body;
 
-    if (!/^(?=.*[0-9])(?=.*[!@#$%^&*])(?=.{8,})/.test(password)) {
-      return res.status(400).json({ message: "Weak password" });
+    // Validate password strength
+    const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])(?=.{8,})/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ message: "Password too weak. It must be at least 8 characters long and include at least one number and one special character." });
     }
 
+    // Validate shop
     if (!Array.isArray(shops) || shops.length < 3) {
-      return res
-        .status(400)
-        .json({ message: "At least 3 shop names required" });
+      return res.status(400).json({ message: "At least 3 shop names are required." });
     }
 
+    // Check if username already exists
     const existingUser = await User.findOne({ username });
-    if (existingUser)
-      return res.status(400).json({ message: "Username taken" });
+    if (existingUser) {
+      return res.status(400).json({ message: "Username is already taken." });
+    }
 
-    // Ensure global uniqueness of shops
-    const conflict = await User.findOne({ shops: { $in: shops } });
-    if (conflict)
-      return res
-        .status(400)
-        .json({ message: "One or more shop names already taken" });
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({
+
+    // Create and save the new user
+    const newUser = await User.create({
       username,
       password: hashedPassword,
       shops,
     });
-    res.status(201).json({ message: "User created" });
-  } catch (error) {
-    console.error(error);
+
+    return res.status(201).json({
+      message: "User created successfully.",
+      data: {
+        id:newUser?._id,
+        username:newUser?.username,
+        shops:newUser?.shops
+      },
+    });
+  } catch (error: any) {
+    console.error("Signup Error:", error);
+    return res.status(500).json({ message: "Something went wrong. Please try again." });
   }
 };
+
 
 const Signin = async (req: Request, res: Response) => {
   return res.status(200).json({ message: "User signed in" });
