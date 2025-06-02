@@ -1,33 +1,36 @@
+import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { Request, Response } from "express";
 import User from "../../models/User";
+import config from '../../config';
+
+const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])(?=.{8,})/;
+
+const sendError = (res: Response, status: number, message: string) =>
+  res.status(status).json({ message });
 
 export const Signup = async (req: Request, res: Response) => {
   try {
     const { username, password, shops } = req.body;
 
-    // Validate password strength
-    const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])(?=.{8,})/;
     if (!passwordRegex.test(password)) {
-      return res.status(400).json({ message: "Password too weak. It must be at least 8 characters long and include at least one number and one special character." });
+      return sendError(
+        res,
+        400,
+        "Password must be at least 8 characters long and include at least one number and one special character."
+      );
     }
 
-    // Validate shop
     if (!Array.isArray(shops) || shops.length < 3) {
-      return res.status(400).json({ message: "At least 3 shop names are required." });
+      return sendError(res, 400, "At least 3 shop names are required.");
     }
 
-    // Check if username already exists
-    const existingUser = await User.findOne({ username });
-    if (existingUser) {
-      return res.status(400).json({ message: "Username is already taken." });
+    if (await User.findOne({ username })) {
+      return sendError(res, 400, "Username is already taken.");
     }
 
-
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create and save the new user
     const newUser = await User.create({
       username,
       password: hashedPassword,
@@ -37,20 +40,45 @@ export const Signup = async (req: Request, res: Response) => {
     return res.status(201).json({
       message: "User created successfully.",
       data: {
-        id:newUser?._id,
-        username:newUser?.username,
-        shops:newUser?.shops
+        id: newUser._id,
+        username: newUser.username,
+        shops: newUser.shops,
       },
     });
   } catch (error: any) {
     console.error("Signup Error:", error);
-    return res.status(500).json({ message: "Something went wrong. Please try again." });
+    return sendError(res, 500, "Something went wrong. Please try again.");
   }
 };
 
+export const Signin = async (req: Request, res: Response) => {
+  try {
+    const { username, password, rememberMe } = req.body;
 
-const Signin = async (req: Request, res: Response) => {
-  return res.status(200).json({ message: "User signed in" });
+    if (!username || !password) {
+      return sendError(res, 400, "Username and password required");
+    }
+
+    const user = await User.findOne({ username });
+    if (!user) {
+      return sendError(res, 401, "User not found");
+    }
+
+    if (!(await bcrypt.compare(password, user.password))) {
+      return sendError(res, 401, "Incorrect password");
+    }
+
+    const expiresIn = rememberMe ? "7d" : "30m";
+    const token = jwt.sign({ id: user._id, username: user.username }, config.jwtSecret, { expiresIn });
+
+    return res.status(200).json({
+      message: "User signed in successfully",
+      token,
+    });
+  } catch (error) {
+    console.error("Signin error:", error);
+    return sendError(res, 500, "Server error");
+  }
 };
 
 export const authController = {

@@ -11,7 +11,13 @@ router.post(
     '/signup',
     validate(ValidationSchema.Signup),
      AsyncHandler(authController.Signup)
-    );
+);
+
+router.post(
+    '/signin',
+    validate(ValidationSchema.Signin),
+     AsyncHandler(authController.Signin)
+);
 
 
 export const AuthRoutes = router;
