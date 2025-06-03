@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { Request, Response } from "express";
 import User from "../../models/User";
 import config from '../../config';
+import { jwtHelpers } from '../../utils/jwtHelper';
 
 const passwordRegex = /^(?=.*[0-9])(?=.*[!@#$%^&*])(?=.{8,})/;
 
@@ -25,6 +26,35 @@ export const Signup = async (req: Request, res: Response) => {
       return sendError(res, 400, "At least 3 shop names are required.");
     }
 
+    // Normalize shop names to lowercase for case-insensitive uniqueness
+    const normalizedShops = shops.map((name: string) => name.trim().toLowerCase());
+
+    // Check for duplicate shop names across all users
+    const existingShops = await User.find({ shops: { $in: normalizedShops } });
+    if (existingShops.length > 0) {
+      const takenShopNames = existingShops
+        .flatMap(user => user?.shops)
+        .filter(shop => normalizedShops?.includes(shop.toLowerCase()));
+
+      return sendError(
+        res,
+        400,
+        `These shop names are already taken: ${[...new Set(takenShopNames)].join(", ")}`
+      );
+    }
+
+    // Check for duplicate shop names in the input itself
+    const duplicates = normalizedShops.filter(
+      (item, index) => normalizedShops.indexOf(item) !== index
+    );
+    if (duplicates.length > 0) {
+      return sendError(
+        res,
+        400,
+        `Duplicate shop names provided: ${[...new Set(duplicates)].join(", ")}`
+      );
+    }
+
     if (await User.findOne({ username })) {
       return sendError(res, 400, "Username is already taken.");
     }
@@ -34,7 +64,7 @@ export const Signup = async (req: Request, res: Response) => {
     const newUser = await User.create({
       username,
       password: hashedPassword,
-      shops,
+      shops: normalizedShops,
     });
 
     return res.status(201).json({
@@ -61,26 +91,40 @@ export const Signin = async (req: Request, res: Response) => {
 
     const user = await User.findOne({ username });
     if (!user) {
-      return sendError(res, 401, "User not found");
+      return sendError(res, 400, "User not found");
     }
 
-    if (!(await bcrypt.compare(password, user.password))) {
-      return sendError(res, 401, "Incorrect password");
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return sendError(res, 400, "Incorrect password");
     }
 
     const expiresIn = rememberMe ? "7d" : "30m";
-    const token = jwt.sign({ id: user._id, username: user.username }, config.jwtSecret, { expiresIn });
+
+    const token = jwtHelpers.generateToken(
+      { id: user._id, username: user.username },
+       config.jwtSecret,
+       expiresIn 
+      )
+
+
+    // Set token in cookie
+    res.cookie("auth_token", token, {
+      httpOnly: true,
+      secure: false, 
+      sameSite: "none",
+      maxAge: rememberMe ? 7 * 24 * 60 * 60 * 1000 : 30 * 60 * 1000, 
+    });
 
     return res.status(200).json({
       message: "User signed in successfully",
-      token,
+      token
     });
   } catch (error) {
     console.error("Signin error:", error);
     return sendError(res, 500, "Server error");
   }
 };
-
 export const authController = {
   Signin,
   Signup,
