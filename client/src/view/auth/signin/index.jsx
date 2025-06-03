@@ -1,8 +1,7 @@
-import { Link, Form, useActionData } from "react-router-dom";
+import { Link} from "react-router-dom";
 import bg_image from "../../../assets/home banner.jpg";
 import { Input } from "../../../components/reuseable/input";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
 import useApi from "../../../hooks/use-api";
 
 export default function Signin() {
@@ -17,7 +16,7 @@ export default function Signin() {
  const onSubmit = async (data) => {
   try {
     const response = await useApi.post("/auth/signin", data);
-    console.log("User signin:", response.data);
+    // console.log("User signin:", response.data);
     alert("User logged in successfully");
   } catch (error) {
     const message = error.response?.data?.message;
